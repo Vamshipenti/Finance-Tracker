@@ -49,5 +49,27 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ message: "Server error", error });
   }
 });
+// ✅ Get All Users (Admin Only)
+router.get("/users", async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ✅ Get a User by ID
+router.get("/users/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 module.exports = router;
