@@ -1,8 +1,10 @@
 const express = require("express");
 const Transaction = require("../models/Transaction");
-const authMiddleware = require("../middleware/auth");  // Ensure authentication
+const authMiddleware = require("../middleware/authMiddleware");  // Ensure authentication
 const router = express.Router();
 const Budget = require("../models/Budget");
+const auth = require("../middleware/authMiddleware"); // Import auth middleware
+
 
 /**
  * @route POST /api/transactions
