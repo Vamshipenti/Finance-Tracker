@@ -1,10 +1,9 @@
 const express = require("express");
 const Transaction = require("../models/Transaction");
-const authMiddleware = require("../middleware/authMiddleware");  // Ensure authentication
-const router = express.Router();
 const Budget = require("../models/Budget");
-const auth = require("../middleware/authMiddleware"); // Import auth middleware
+const authMiddleware = require("../middleware/authMiddleware");
 
+const router = express.Router();
 
 /**
  * @route POST /api/transactions
@@ -13,7 +12,7 @@ const auth = require("../middleware/authMiddleware"); // Import auth middleware
  */
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { amount, type, category, description } = req.body;
+    const { amount, type, category, description, date } = req.body;
 
     if (!amount || !type || !category) {
       return res.status(400).json({ message: "All fields are required" });
@@ -25,62 +24,57 @@ router.post("/", authMiddleware, async (req, res) => {
       type,
       category,
       description,
+      date: date || Date.now(),
     });
 
     await transaction.save();
+
+    // Check if spending exceeds budget
+    if (type === "expense") {
+      let budget = await Budget.findOne({ user: req.user.id, category });
+
+      if (budget) {
+        budget.spent += amount;
+        await budget.save();
+
+        if (budget.spent > budget.limit) {
+          return res.status(400).json({
+            message: `Alert! You exceeded your budget for ${category} (Spent: ₹${budget.spent}, Limit: ₹${budget.limit})`,
+          });
+        }
+      }
+    }
+
     res.status(201).json(transaction);
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
+    console.error(error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 });
 
 /**
  * @route GET /api/transactions
- * @desc Get all transactions for a user
+ * @desc Get all transactions with filtering & sorting
  * @access Private
  */
-// router.get("/", authMiddleware, async (req, res) => {
-//   try {
-//     const transactions = await Transaction.find({ user: req.user.id }).sort({
-//       date: -1,
-//     });
-//     res.status(200).json(transactions);
-//   } catch (error) {
-//     res.status(500).json({ message: "Server Error", error });
-//   }
-// });
-
-
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    let { type, category, sortBy, order } = req.query;
+    const { type, category, sortBy, order } = req.query;
+    let filter = { user: req.user.id };
 
-    let filter = { user: userId }; // Default filter to get only the logged-in user's transactions
+    if (type) filter.type = type;
+    if (category) filter.category = category;
 
-    // Apply type filter if provided (income/expense)
-    if (type) {
-      filter.type = type;
-    }
+    let allowedSortFields = ["date", "amount", "category"];
+    let sortField = allowedSortFields.includes(sortBy) ? sortBy : "date";
+    let sortDirection = order === "asc" ? 1 : -1;
 
-    // Apply category filter if provided
-    if (category) {
-      filter.category = category;
-    }
-
-    // Sorting (default: newest transactions first)
-    let sortOptions = {};
-    if (sortBy) {
-      sortOptions[sortBy] = order === "asc" ? 1 : -1;
-    } else {
-      sortOptions.date = -1; // Default sorting by newest
-    }
-
-    const transactions = await Transaction.find(filter).sort(sortOptions);
+    const transactions = await Transaction.find(filter).sort({ [sortField]: sortDirection });
 
     res.status(200).json(transactions);
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
+    console.error(error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 });
 
@@ -100,16 +94,13 @@ router.put("/:id", authMiddleware, async (req, res) => {
       return res.status(403).json({ message: "Unauthorized action" });
     }
 
-    const { amount, type, category, description } = req.body;
-    transaction.amount = amount || transaction.amount;
-    transaction.type = type || transaction.type;
-    transaction.category = category || transaction.category;
-    transaction.description = description || transaction.description;
-
+    Object.assign(transaction, req.body);
     await transaction.save();
+
     res.status(200).json(transaction);
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
+    console.error(error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 });
 
@@ -129,50 +120,12 @@ router.delete("/:id", authMiddleware, async (req, res) => {
       return res.status(403).json({ message: "Unauthorized action" });
     }
 
-    await transaction.deleteOne();
+    await Transaction.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: "Transaction deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
+    console.error(error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 });
-
-
-router.post("/add", auth, async (req, res) => {
-  try {
-    const { description, amount, type, category, date } = req.body;
-    
-    const transaction = new Transaction({
-      userId: req.user.id,
-      description,
-      amount,
-      type,
-      category,
-      date,
-    });
-
-    await transaction.save();
-
-    // ✅ Check if spending exceeds budget
-    if (type === "expense") {
-      let budget = await Budget.findOne({ userId: req.user.id, category });
-
-      if (budget) {
-        budget.spent += amount;
-        await budget.save();
-
-        if (budget.spent > budget.limit) {
-          return res.status(400).json({
-            message: `Alert! You exceeded your budget for ${category} (Spent: ₹${budget.spent}, Limit: ₹${budget.limit})`,
-          });
-        }
-      }
-    }
-
-    res.status(201).json({ message: "Transaction added", transaction });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 
 module.exports = router;

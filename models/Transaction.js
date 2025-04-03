@@ -9,6 +9,7 @@ const TransactionSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true,
+    min: [0, "Amount must be a positive number"], // Prevent negative values
   },
   type: {
     type: String,
@@ -18,13 +19,16 @@ const TransactionSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
+    trim: true, // Remove extra spaces
   },
   description: {
     type: String,
+    trim: true, // Remove extra spaces
   },
   date: {
     type: Date,
-    default: Date.now,
+    required: true,
+    default: () => new Date().toISOString().split("T")[0], // Stores only YYYY-MM-DD
   },
 });
 
