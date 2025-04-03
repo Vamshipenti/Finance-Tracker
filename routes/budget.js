@@ -99,18 +99,34 @@ router.post("/budget", addOrUpdateBudget);
 // GET: Fetch Budget for Current Month
 router.get('/budget', async (req, res) => {
   try {
-    const userId = req.user.id;
-    const now = new Date();
-    const month = now.getMonth();
-    const year = now.getFullYear();
+    const userId = req.user ? req.user.id : req.query.userId; // ✅ Get userId safely
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    let { month, year } = req.query;
+
+    // ✅ Ensure month and year are valid
+    if (!month || !year) {
+      const now = new Date();
+      month = now.getMonth() + 1; // ✅ Convert to 1-based month
+      year = now.getFullYear();
+    } else {
+      month = parseInt(month);
+      year = parseInt(year);
+    }
+
+    console.log("Fetching budget for:", { userId, month, year });
 
     const budget = await Budget.findOne({ userId, month, year });
 
     res.status(200).json({ budget: budget ? budget.amount : 0 });
 
   } catch (error) {
+    console.error("Error fetching budget:", error);
     res.status(500).json({ error: 'Error fetching budget' });
   }
 });
+
 
 module.exports = router;
