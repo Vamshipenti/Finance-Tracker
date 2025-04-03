@@ -39,11 +39,45 @@ router.post("/", authMiddleware, async (req, res) => {
  * @desc Get all transactions for a user
  * @access Private
  */
+// router.get("/", authMiddleware, async (req, res) => {
+//   try {
+//     const transactions = await Transaction.find({ user: req.user.id }).sort({
+//       date: -1,
+//     });
+//     res.status(200).json(transactions);
+//   } catch (error) {
+//     res.status(500).json({ message: "Server Error", error });
+//   }
+// });
+
+
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const transactions = await Transaction.find({ user: req.user.id }).sort({
-      date: -1,
-    });
+    const userId = req.user.id;
+    let { type, category, sortBy, order } = req.query;
+
+    let filter = { user: userId }; // Default filter to get only the logged-in user's transactions
+
+    // Apply type filter if provided (income/expense)
+    if (type) {
+      filter.type = type;
+    }
+
+    // Apply category filter if provided
+    if (category) {
+      filter.category = category;
+    }
+
+    // Sorting (default: newest transactions first)
+    let sortOptions = {};
+    if (sortBy) {
+      sortOptions[sortBy] = order === "asc" ? 1 : -1;
+    } else {
+      sortOptions.date = -1; // Default sorting by newest
+    }
+
+    const transactions = await Transaction.find(filter).sort(sortOptions);
+
     res.status(200).json(transactions);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error });
