@@ -74,27 +74,25 @@ const Budget = require('../models/Budget'); // Import Budget model
 const router = express.Router();
 // POST: Add or Update Monthly Budget
 // Controller function to add/update monthly budget
-
-
 const addOrUpdateBudget = async (req, res) => {
   const { userId, amount, month, year } = req.body;
 
   try {
-      let budget = await Budget.findOne({ userId, month, year });
+    let budget = await Budget.findOne({ userId, month, year });
 
-      if (budget) {
-          // Update existing budget for the month
-          budget.amount = amount;
-          await budget.save();
-          return res.json({ message: "Budget updated successfully", budget });
-      } else {
-          // Create new budget
-          budget = new Budget({ userId, amount, month, year });
-          await budget.save();
-          return res.json({ message: "Budget added successfully", budget });
-      }
+    if (budget) {
+      // Update existing budget for the month
+      budget.amount = amount;
+      await budget.save();
+      return res.json({ message: "Budget updated successfully", budget });
+    } else {
+      // Create new budget
+      budget = new Budget({ userId, amount, month, year });
+      await budget.save();
+      return res.json({ message: "Budget added successfully", budget });
+    }
   } catch (error) {
-      res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error", details: error.message });
   }
 };
 router.post("/budget", addOrUpdateBudget);
