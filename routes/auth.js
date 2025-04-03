@@ -50,12 +50,24 @@ router.post("/login", async (req, res) => {
   }
 });
 // ✅ Get All Users (Admin Only)
-router.get("/users", async (req, res) => {
+// router.get("/users", async (req, res) => {
+//   try {
+//     const users = await User.find();
+//     res.json(users);
+//   } catch (error) {
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
+router.get("/user", authMiddleware, async (req, res) => {
   try {
-    const users = await User.find();
-    res.json(users);
+    const user = await User.findOne({ email: req.user.email }).select("_id"); // Return only necessary fields
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user); // Send user data including _id
   } catch (error) {
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ message: "Server error", error });
   }
 });
 
